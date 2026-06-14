@@ -12,6 +12,11 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
+        // ── SECURITY: XSS sanitizer ─────────────────────────────────────────────
+        function escapeHtml(str) {
+            if (typeof str !== 'string') return str;
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
         // ─── InvenTrack Pro · Supabase Cloud Layer ───────────────────────────────
         const SUPABASE_URL = 'https://dknyvfyuxwjkvgmugogo.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRrbnl2Znl1eHdqa3ZnbXVnb2dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwODE3MDEsImV4cCI6MjA4NzY1NzcwMX0.9TcxqztB8oosWlm7oyxlUDYmzA9uGPcnEKc6FN8xqD4';
@@ -2056,27 +2061,27 @@
                                 <input type="file" id="f-image-file" accept="image/*" style="display:none" onchange="onImageSelected(this)" />
                                 <input type="hidden" id="f-image" />
                             </div>
-                            <div style="flex:1"><label>Product Name *</label><input id="f-name" required placeholder="e.g. Wireless Mouse" /></div>
+                            <div style="flex:1"><label>Product Name *</label><input id="f-name" required placeholder="e.g. Wireless Mouse" maxlength="100" /></div>
                         </div>
-                        <div class="form-group"><label>SKU *</label><input id="f-sku" required placeholder="WM-001" />
+                        <div class="form-group"><label>SKU *</label><input id="f-sku" required placeholder="WM-001" maxlength="30" />
                         </div>
                         <div class="form-group" id="cat-group">
                             <label>Category *</label>
                             <select id="f-category" onchange="onCategoryChange(this.value)"></select>
                             <div id="custom-cat-wrap" style="display:none;margin-top:8px;animation:fadeIn .2s">
                                 <input id="f-custom-category" placeholder="Type new category name…" style="width:100%"
-                                    oninput="this.value=this.value.trimStart()" />
+                                    maxlength="50" oninput="this.value=this.value.trimStart()" />
                                 <div style="font-size:11px;color:var(--cyan);margin-top:5px">
                                     <i class="fa fa-circle-info"></i>
                                     This category will be saved and available for all future products.
                                 </div>
                             </div>
                         </div>
-                        <div class="form-group"><label>Current Stock *</label><input id="f-stock" type="number" min="0"
+                        <div class="form-group"><label>Current Stock *</label><input id="f-stock" type="number" min="0" max="999999"
                                 required placeholder="100" /></div>
                         <div class="form-group"><label>Reorder Point</label><input id="f-reorder" type="number" min="0"
                                 placeholder="20" /></div>
-                        <div class="form-group"><label>Unit Price (₹) *</label><input id="f-price" type="number" min="0"
+                        <div class="form-group"><label>Unit Price (₹) *</label><input id="f-price" type="number" min="0" max="99999999"
                                 required placeholder="499" /></div>
                         <div class="form-group"><label>Daily Velocity (units/day)</label><input id="f-velocity"
                                 type="number" min="0" step="0.1" placeholder="3.5" /></div>
@@ -2540,7 +2545,7 @@
 
             function buildTrendFilter(products) {
                 const sel = document.getElementById('chart-product-filter');
-                sel.innerHTML = products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                sel.innerHTML = products.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
             }
 
             async function updateTrendChart(products) {
@@ -2595,7 +2600,7 @@
                 const allCats = [...new Set([...getCategories(), ...productCats])];
                 const curCat = catF.value;
                 catF.innerHTML = '<option value="">All Categories</option>' +
-                    allCats.map(c => `<option value="${c}" ${c === curCat ? 'selected' : ''}>${c}</option>`).join('');
+                    allCats.map(c => `<option value="${escapeHtml(c)}" ${c === curCat ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('');
                 const catVal = catF.value, statusVal = document.getElementById('status-filter').value, q = searchQ.toLowerCase();
                 const filtered = products.filter(p => {
                     const mQ = !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
@@ -2610,8 +2615,8 @@
                             ? `<img src="${p.image}" style="width:38px;height:38px;object-fit:cover;border-radius:8px;margin-right:10px;flex-shrink:0" />`
                             : `<span style="font-size:22px;margin-right:10px">📦</span>`;
                         return `<tr>
-        <td><div style="display:flex;align-items:center">${imgHtml}<div><div class="product-name">${p.name}</div><div class="product-sku">${p.sku}</div></div></div></td>
-        <td><span class="tag tag-blue">${p.category}</span></td>
+        <td><div style="display:flex;align-items:center">${imgHtml}<div><div class="product-name">${escapeHtml(p.name)}</div><div class="product-sku">${escapeHtml(p.sku)}</div></div></div></td>
+        <td><span class="tag tag-blue">${escapeHtml(p.category)}</span></td>
         <td>${stockBar(p)}</td>
         <td><span style="font-size:12px">${p.reorder}</span></td>
         <td style="font-weight:600">${fmt(p.price)}</td>
@@ -2825,7 +2830,7 @@ Generated: ${new Date().toLocaleString('en-IN')}
                 if (!sel) return;
                 const cats = getCategories();
                 sel.innerHTML = cats.map(c =>
-                    `<option value="${c}" ${c === selectedValue ? 'selected' : ''}>${c}</option>`
+                    `<option value="${escapeHtml(c)}" ${c === selectedValue ? 'selected' : ''}>${escapeHtml(c)}</option>`
                 ).join('') + `<option value="__other__" ${selectedValue === '__other__' ? 'selected' : ''}>➕ Other (Add New…)</option>`;
             }
 
@@ -3061,11 +3066,39 @@ Generated: ${new Date().toLocaleString('en-IN')}
             }
             function getActiveId() { return localStorage.getItem('auth_active'); }
             function isSessionValid(id) {
-                return localStorage.getItem('auth_sess_' + id) === new Date().toISOString().slice(0, 10);
+                const sess = JSON.parse(localStorage.getItem('auth_sess_' + id) || 'null');
+                if (!sess) return false;
+                // Session expires at end of day (same as before) + must have valid token
+                return sess.date === new Date().toISOString().slice(0, 10) && sess.token && sess.token.length > 10;
             }
             function setSession(id) {
-                localStorage.setItem('auth_sess_' + id, new Date().toISOString().slice(0, 10));
+                const token = crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36) + Math.random().toString(36)).slice(2);
+                localStorage.setItem('auth_sess_' + id, JSON.stringify({ date: new Date().toISOString().slice(0, 10), token }));
                 localStorage.setItem('auth_active', id);
+            }
+
+            // ── LOGIN RATE LIMITING ────────────────────────────────────────────────
+            function checkLoginRateLimit() {
+                const rl = JSON.parse(localStorage.getItem('login_ratelimit') || '{"count":0,"lockUntil":0}');
+                if (Date.now() < rl.lockUntil) {
+                    const mins = Math.ceil((rl.lockUntil - Date.now()) / 60000);
+                    setErr(`🔒 Too many failed attempts. Try again in ${mins} min.`);
+                    return false;
+                }
+                if (Date.now() > rl.lockUntil) { rl.count = 0; rl.lockUntil = 0; }
+                return true;
+            }
+            function recordFailedLogin() {
+                const rl = JSON.parse(localStorage.getItem('login_ratelimit') || '{"count":0,"lockUntil":0}');
+                rl.count++;
+                if (rl.count >= 5) {
+                    rl.lockUntil = Date.now() + 15 * 60 * 1000; // 15 min lockout
+                    setErr('🔒 Account locked for 15 minutes due to failed attempts.');
+                }
+                localStorage.setItem('login_ratelimit', JSON.stringify(rl));
+            }
+            function resetLoginRateLimit() {
+                localStorage.removeItem('login_ratelimit');
             }
             async function hashStr(s) {
                 const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
@@ -3127,12 +3160,14 @@ Generated: ${new Date().toLocaleString('en-IN')}
             }
             async function handleSignIn(e) {
                 e.preventDefault();
+                if (!checkLoginRateLimit()) return;
                 const pass = lv('lp-pass').value;
                 if (!_selectedUserId || !pass) { setErr('Enter your password.'); return; }
                 const users = await getUsers();
                 const u = users.find(x => x.id === _selectedUserId);
                 if (!u) { setErr('User not found.'); return; }
-                if (await hashStr(pass) !== u.hp) { setErr('Incorrect password.'); return; }
+                if (await hashStr(pass) !== u.hp) { recordFailedLogin(); setErr('Incorrect password.'); return; }
+                resetLoginRateLimit();
                 setSession(u.id); showApp(u);
                 if (_switchMode) lv('login-screen').classList.add('hidden');
                 else initApp();
