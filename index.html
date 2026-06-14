@@ -3066,10 +3066,13 @@ Generated: ${new Date().toLocaleString('en-IN')}
             }
             function getActiveId() { return localStorage.getItem('auth_active'); }
             function isSessionValid(id) {
-                const sess = JSON.parse(localStorage.getItem('auth_sess_' + id) || 'null');
-                if (!sess) return false;
-                // Session expires at end of day (same as before) + must have valid token
-                return sess.date === new Date().toISOString().slice(0, 10) && sess.token && sess.token.length > 10;
+                try {
+                    const raw = localStorage.getItem('auth_sess_' + id);
+                    if (!raw) return false;
+                    const sess = JSON.parse(raw);
+                    if (!sess || typeof sess !== 'object') return false;
+                    return sess.date === new Date().toISOString().slice(0, 10) && sess.token && sess.token.length > 10;
+                } catch { return false; } // old format or corrupt data — force re-login
             }
             function setSession(id) {
                 const token = crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36) + Math.random().toString(36)).slice(2);
