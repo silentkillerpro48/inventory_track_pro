@@ -1942,7 +1942,10 @@
                     <!-- Product found card -->
                     <div class="product-found-card" id="product-found-card">
                         <div class="pf-header">
-                            <div class="pf-icon">📦</div>
+                            <div id="pf-icon-wrap" style="width:56px;height:56px;border-radius:10px;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                <img id="pf-img" src="" style="width:100%;height:100%;object-fit:cover;display:none" />
+                                <div class="pf-icon" id="pf-icon-emoji">📦</div>
+                            </div>
                             <div>
                                 <div class="pf-name" id="pf-name"></div>
                                 <div class="pf-sku" id="pf-sku-cat"></div>
@@ -2042,8 +2045,19 @@
                 </div>
                 <form onsubmit="saveProduct(event)">
                     <div class="form-grid">
-                        <div class="form-group full"><label>Product Name *</label><input id="f-name" required
-                                placeholder="e.g. Wireless Mouse" /></div>
+                        <div class="form-group full" style="display:flex;gap:18px;align-items:flex-start">
+                            <div style="flex-shrink:0;text-align:center">
+                                <div id="img-preview-wrap" style="width:90px;height:90px;border-radius:12px;border:2px dashed var(--border);background:var(--bg3);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;transition:.2s" onclick="document.getElementById('f-image-file').click()" title="Click to upload image">
+                                    <img id="img-preview" src="" style="width:100%;height:100%;object-fit:cover;display:none;border-radius:10px" />
+                                    <span id="img-placeholder" style="font-size:28px">📷</span>
+                                </div>
+                                <div style="font-size:10px;color:var(--muted);margin-top:5px">Click to upload</div>
+                                <button type="button" id="img-clear-btn" onclick="clearProductImage()" style="display:none;margin-top:4px;font-size:10px;background:none;border:none;color:var(--red);cursor:pointer">✕ Remove</button>
+                                <input type="file" id="f-image-file" accept="image/*" style="display:none" onchange="onImageSelected(this)" />
+                                <input type="hidden" id="f-image" />
+                            </div>
+                            <div style="flex:1"><label>Product Name *</label><input id="f-name" required placeholder="e.g. Wireless Mouse" /></div>
+                        </div>
                         <div class="form-group"><label>SKU *</label><input id="f-sku" required placeholder="WM-001" />
                         </div>
                         <div class="form-group" id="cat-group">
@@ -2260,6 +2274,15 @@
                 document.getElementById('pf-stock').textContent = p.stock;
                 document.getElementById('pf-price').textContent = fmt(p.price);
                 document.getElementById('sale-qty').value = p.stock > 0 ? 1 : 0;
+                const pfImg = document.getElementById('pf-img');
+                const pfEmoji = document.getElementById('pf-icon-emoji');
+                if (p.image) {
+                    pfImg.src = p.image; pfImg.style.display = 'block';
+                    pfEmoji.style.display = 'none';
+                } else {
+                    pfImg.style.display = 'none';
+                    pfEmoji.style.display = 'block';
+                }
                 document.getElementById('product-found-card').classList.add('visible');
                 document.getElementById('no-product-msg').style.display = 'none';
                 updateSaleTotal();
@@ -2356,6 +2379,11 @@
                     renderSessionSummary();
                     renderSalesLog();
                     showToast(`✅ Sold ${qty}× ${fresh.name} · ${fmt(saleEntry.total)}`, 'ok');
+
+                    // Auto-trigger email alert if stock just dropped to/below reorder
+                    if (newStock <= fresh.reorder) {
+                        sendLowStockEmail(false).catch(() => {});
+                    }
 
                     // Clear input and hide card ready for next scan
                     document.getElementById('sale-sku-input').value = '';
@@ -2578,8 +2606,11 @@
                     filtered.map(p => {
                         const st = getStatus(p); const h = p.history || [p.stock];
                         const sparkH = h.map(v => `<span style="height:${Math.max(2, Math.round(v / Math.max(...h, 1) * 22))}px"></span>`).join('');
+                        const imgHtml = p.image
+                            ? `<img src="${p.image}" style="width:38px;height:38px;object-fit:cover;border-radius:8px;margin-right:10px;flex-shrink:0" />`
+                            : `<span style="font-size:22px;margin-right:10px">📦</span>`;
                         return `<tr>
-        <td><div class="product-name">${p.name}</div><div class="product-sku">${p.sku}</div></td>
+        <td><div style="display:flex;align-items:center">${imgHtml}<div><div class="product-name">${p.name}</div><div class="product-sku">${p.sku}</div></div></div></td>
         <td><span class="tag tag-blue">${p.category}</span></td>
         <td>${stockBar(p)}</td>
         <td><span style="font-size:12px">${p.reorder}</span></td>
@@ -2678,13 +2709,14 @@
                     if (manual) showToast('✅ No low-stock items to report!', 'ok');
                     return;
                 }
-                // Rate-limit: once per day per same set of low-stock SKUs
+                // Rate-limit: once per day, but re-send if new SKUs entered low-stock
                 if (!manual) {
                     const today = new Date().toDateString();
                     const lastDate = localStorage.getItem('lastLowStockEmail_date');
-                    const lastSkus = localStorage.getItem('lastLowStockEmail_skus');
-                    const curSkus = lowItems.map(p => p.sku).sort().join(',');
-                    if (lastDate === today && lastSkus === curSkus) return;
+                    const lastSkus = localStorage.getItem('lastLowStockEmail_skus') || '';
+                    const lastSet = new Set(lastSkus.split(','));
+                    const hasNewLowStock = lowItems.some(p => !lastSet.has(p.sku));
+                    if (lastDate === today && !hasNewLowStock) return;
                 }
 
                 const subject = `⚠️ InvenTrack Alert: ${lowItems.length} Low-Stock Item(s)`;
@@ -2823,6 +2855,7 @@ Generated: ${new Date().toLocaleString('en-IN')}
                 document.getElementById('f-custom-category').value = '';
                 document.getElementById('f-custom-category').required = false;
                 populateCategorySelect('f-category', 'Electronics');
+                clearProductImage();
                 document.getElementById('save-btn').innerHTML = '<i class="fa fa-save"></i> Save to DB';
                 document.getElementById('modal-overlay').classList.add('open');
             }
@@ -2841,7 +2874,13 @@ Generated: ${new Date().toLocaleString('en-IN')}
                 document.getElementById('custom-cat-wrap').style.display = 'none';
                 document.getElementById('f-custom-category').value = '';
                 document.getElementById('f-custom-category').required = false;
-                // Ensure the product's category is in the list (it may be a custom one)
+                if (p.image) {
+                    document.getElementById('f-image').value = p.image;
+                    document.getElementById('img-preview').src = p.image;
+                    document.getElementById('img-preview').style.display = 'block';
+                    document.getElementById('img-placeholder').style.display = 'none';
+                    document.getElementById('img-clear-btn').style.display = 'inline-block';
+                } else { clearProductImage(); }
                 if (p.category && !getCategories().includes(p.category)) saveCustomCategory(p.category);
                 populateCategorySelect('f-category', p.category);
                 document.getElementById('save-btn').innerHTML = '<i class="fa fa-save"></i> Update in DB';
@@ -2876,7 +2915,8 @@ Generated: ${new Date().toLocaleString('en-IN')}
                     reorder: parseInt(document.getElementById('f-reorder').value) || 20,
                     price: parseFloat(document.getElementById('f-price').value) || 0,
                     velocity: parseFloat(document.getElementById('f-velocity').value) || 1,
-                    lead: parseInt(document.getElementById('f-lead').value) || 7
+                    lead: parseInt(document.getElementById('f-lead').value) || 7,
+                    image: document.getElementById('f-image').value || null
                 };
                 try {
                     if (idVal) {
@@ -2889,6 +2929,32 @@ Generated: ${new Date().toLocaleString('en-IN')}
                     closeModal(); await loadPage(currentPage);
                 } catch (err) { console.error(err); showToast('Error: ' + err.message, 'err'); }
                 saveBtn.innerHTML = '<i class="fa fa-save"></i> Save to DB'; saveBtn.disabled = false;
+            }
+
+            // ── IMAGE HELPERS ──────────────────────────────────────────────────────
+            function onImageSelected(input) {
+                const file = input.files[0]; if (!file) return;
+                if (file.size > 2 * 1024 * 1024) { showToast('Image too large — max 2MB', 'err'); input.value = ''; return; }
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const b64 = e.target.result;
+                    document.getElementById('f-image').value = b64;
+                    document.getElementById('img-preview').src = b64;
+                    document.getElementById('img-preview').style.display = 'block';
+                    document.getElementById('img-placeholder').style.display = 'none';
+                    document.getElementById('img-clear-btn').style.display = 'inline-block';
+                    document.getElementById('img-preview-wrap').style.border = '2px solid var(--cyan)';
+                };
+                reader.readAsDataURL(file);
+            }
+            function clearProductImage() {
+                document.getElementById('f-image').value = '';
+                document.getElementById('f-image-file').value = '';
+                document.getElementById('img-preview').src = '';
+                document.getElementById('img-preview').style.display = 'none';
+                document.getElementById('img-placeholder').style.display = 'block';
+                document.getElementById('img-clear-btn').style.display = 'none';
+                document.getElementById('img-preview-wrap').style.border = '2px dashed var(--border)';
             }
 
             async function deleteProduct(id) {
