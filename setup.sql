@@ -11,7 +11,8 @@ create table products (
   price numeric default 0,
   velocity numeric default 0,
   lead int default 7,
-  history jsonb default '[]'
+  history jsonb default '[]',
+  image text default null
 );
 alter table products enable row level security;
 create policy "public_access" on products for all to anon using (true) with check (true);
