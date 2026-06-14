@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -2790,7 +2790,7 @@ Generated: ${new Date().toLocaleString('en-IN')}
             // ──────────────────────────────────────────────────────────────────────────────
             async function renderReport(products) {
                 if (!products) products = await dbGetAll();
-                document.getElementById('report-tbody').innerHTML = products.map(p => { const st = getStatus(p); const d = daysLeft(p); return `<tr><td class="product-name">${p.name}</td><td style="color:var(--muted);font-size:12px">${p.sku}</td><td><span class="tag tag-blue">${p.category}</span></td><td>${p.stock}</td><td>${fmt(p.stock * p.price)}</td><td>${p.velocity}/day</td><td style="font-weight:600;color:${d < 7 ? 'var(--red)' : d < 14 ? 'var(--orange)' : 'var(--green)'}">${d === 999 ? '∞' : d + 'd'}</td><td><span class="tag ${st.cls}">${st.label}</span></td></tr>`; }).join('');
+                document.getElementById('report-tbody').innerHTML = products.map(p => { const st = getStatus(p); const d = daysLeft(p); const imgHtml = p.image ? `<img src="${p.image}" style="width:36px;height:36px;object-fit:cover;border-radius:8px;margin-right:10px;flex-shrink:0;vertical-align:middle" />` : `<span style="font-size:20px;margin-right:10px">\ud83d\udce6</span>`; return `<tr><td><div style="display:flex;align-items:center">${imgHtml}<span class="product-name">${p.name}</span></div></td><td style="color:var(--muted);font-size:12px">${p.sku}</td><td><span class="tag tag-blue">${p.category}</span></td><td>${p.stock}</td><td>${fmt(p.stock * p.price)}</td><td>${p.velocity}/day</td><td style="font-weight:600;color:${d < 7 ? 'var(--red)' : d < 14 ? 'var(--orange)' : 'var(--green)'}">${d === 999 ? '∞' : d + 'd'}</td><td><span class="tag ${st.cls}">${st.label}</span></td></tr>`; }).join('');
             }
             async function exportCSV() {
                 const products = await dbGetAll();
